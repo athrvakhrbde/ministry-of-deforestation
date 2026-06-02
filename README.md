@@ -1,36 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ministry of Deforestation
 
-## Getting Started
+A civic accountability tool mapping trees felled across India — crowdsourced incidents on a live Mapbox map with Supabase backend.
 
-First, run the development server:
+**Not an official government website.** Satirical archival aesthetic for environmental transparency.
+
+## Tech Stack
+
+- Next.js 14 (App Router) + TypeScript
+- Mapbox GL JS + react-map-gl
+- Supabase (PostgreSQL, Storage, Realtime)
+- Tailwind CSS + custom design tokens
+- Recharts (dashboard)
+
+## Quick Start
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Environment variables
+
+Copy `.env.local.example` to `.env.local` and fill in:
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | [Mapbox](https://account.mapbox.com/) public token |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-only, for POST/uploads) |
+
+**Without Supabase:** the app runs with 90+ built-in seed incidents across India (no database required).
+
+### 3. Supabase setup
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run [`supabase/migrations/001_incidents.sql`](supabase/migrations/001_incidents.sql) in the SQL Editor
+3. Run [`supabase/seed.sql`](supabase/seed.sql) for 25 sample incidents
+4. Enable **Realtime** on the `incidents` table (Database → Replication)
+5. Create storage bucket `incident-media` (public read)
+
+```sql
+insert into storage.buckets (id, name, public) values ('incident-media', 'incident-media', true);
+```
+
+### 4. Run dev server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | Description |
+|------|-------------|
+| `/` | Full-screen map with filters and incident sidebar |
+| `/submit` | Citizen incident report form |
+| `/incident/[id]` | Full incident dossier |
+| `/dashboard` | Aggregate statistics and charts |
 
-## Learn More
+## Live news ingest engine
 
-To learn more about Next.js, take a look at the following resources:
+The site pulls **real-time environmental news** from RSS feeds (Google News, Down To Earth, The Hindu) and the GDELT API, classifies articles about tree felling / deforestation in India, and creates map incidents automatically.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Schedule | 6:00 AM & 6:00 PM IST (twice daily) |
+|----------|-------------------------------------|
+| Cron (Vercel) | `vercel.json` → `GET /api/cron/ingest` |
+| Local manual | `npm run ingest` (dev server must be running) |
+| Auto on visit | `/api/ingest/status` triggers sync if last run &gt; 12h ago |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Env:** set `CRON_SECRET` in `.env.local` for production cron auth.
 
-## Deploy on Vercel
+Without Supabase, ingested incidents are stored in `data/live-incidents.json` and merged with seed data. With Supabase, rows are inserted with `source_type: news` and deduped via `source_hash`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The homepage shows a **live status bar** (sync state, last ingest, next run) and polls for new incidents every 60s.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API
+
+- `GET /api/incidents` — list/filter incidents
+- `POST /api/incidents` — create incident (service role)
+- `POST /api/incidents/upload` — upload media files
+- `GET /api/stats` — dashboard aggregates
+- `GET /api/ingest/status` — live ingest status (+ optional `?sync=1` to trigger)
+- `GET/POST /api/cron/ingest` — run news ingest (requires `CRON_SECRET` or dev mode)
+
+## Project Structure
+
+```
+app/           Pages and API routes
+components/    Map, sidebar, forms, header
+hooks/         useIncidents, useMapFilters
+lib/           Supabase clients, schemas, constants
+public/geo/    India state outlines + forest overlay GeoJSON
+supabase/      SQL migration and seed data
+```
+
+## Deploy to Vercel
+
+1. Push this repo to GitHub (see below).
+2. Import the project at [vercel.com/new](https://vercel.com/new).
+3. Add environment variables from `.env.local.example`:
+   - **Required for cron:** `CRON_SECRET` (random string; Vercel Cron sends `x-vercel-cron`)
+   - **Optional:** `NEXT_PUBLIC_MAPBOX_TOKEN`, Supabase keys, `NEXT_PUBLIC_APP_URL`
+4. Deploy. Cron runs twice daily via `vercel.json` (`/api/cron/ingest`).
+
+```bash
+npm run build   # verify locally before deploy
+```
+
+Production uses **MapLibre + Carto dark tiles** when no Mapbox token is set.
+
+## License
+
+MIT — use for civic journalism and environmental accountability.
