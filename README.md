@@ -66,7 +66,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 The site pulls **real-time environmental news** from RSS feeds (Google News, Down To Earth, The Hindu) and the GDELT API, classifies articles about tree felling / deforestation in India, and creates map incidents automatically.
 
-| Schedule | 6:00 AM & 6:00 PM IST (twice daily) |
+| Schedule | Daily ~6:00 AM UTC on Vercel Hobby (once/day); use Pro for twice daily |
 |----------|-------------------------------------|
 | Cron (Vercel) | `vercel.json` → `GET /api/cron/ingest` |
 | Local manual | `npm run ingest` (dev server must be running) |
