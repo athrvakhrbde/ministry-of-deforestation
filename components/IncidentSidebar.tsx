@@ -1,11 +1,20 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import type { Incident } from "@/lib/types";
 import StampBadge from "./StampBadge";
 import { CLEARANCE_OPTIONS } from "@/lib/constants";
-import { ensureSourceUrl } from "@/lib/source-link";
+import {
+  ensureSourceUrl,
+  buildNgtCaseUrl,
+  buildNgtPortalUrl,
+  buildClearanceRecordsUrl,
+  buildAuthorityRecordsUrl,
+  buildMinistryRecordsUrl,
+  buildCourtOrderUrl,
+} from "@/lib/source-link";
 
 interface IncidentSidebarProps {
   incident: Incident | null;
@@ -16,7 +25,39 @@ interface IncidentSidebarProps {
   embedded?: boolean;
 }
 
-function StatusPill({ status }: { status: Incident["status"] }) {
+function ExternalCaseLink({
+  href,
+  children,
+  variant = "amber",
+}: {
+  href: string;
+  children: ReactNode;
+  variant?: "amber" | "red" | "paper";
+}) {
+  const styles = {
+    amber: "border-amber-warn text-amber-warn hover:bg-amber-warn/10",
+    red: "border-red-stamp text-red-stamp hover:bg-red-stamp/10",
+    paper: "border-paper/30 text-paper hover:bg-paper/5",
+  };
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`block font-data text-[10px] border px-2 py-1.5 mt-2 break-all ${styles[variant]}`}
+    >
+      {children}
+    </a>
+  );
+}
+
+function StatusPill({
+  status,
+  href,
+}: {
+  status: Incident["status"];
+  href?: string;
+}) {
   const styles = {
     ongoing: "bg-red-stamp/20 text-red-stamp border-red-stamp",
     completed: "bg-muted/20 text-muted border-muted",
@@ -27,13 +68,17 @@ function StatusPill({ status }: { status: Incident["status"] }) {
     completed: "COMPLETED",
     halted: "HALTED BY COURT",
   };
-  return (
-    <span
-      className={`font-data text-[10px] px-2 py-0.5 border ${styles[status]}`}
-    >
-      {labels[status]}
-    </span>
-  );
+  const className = `font-data text-[10px] px-2 py-0.5 border ${styles[status]} ${
+    href ? "hover:opacity-80" : ""
+  }`;
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+        {labels[status]} ↗
+      </a>
+    );
+  }
+  return <span className={className}>{labels[status]}</span>;
 }
 
 function ClearanceStamp({
@@ -70,6 +115,21 @@ export default function IncidentSidebar({
     incident.location_name,
     incident.project_name
   );
+
+  const legalContext = {
+    location_name: incident.location_name,
+    state: incident.state,
+    project_name: incident.project_name,
+    ngt_case: incident.ngt_case,
+  };
+
+  const courtUrl = buildCourtOrderUrl(legalContext);
+  const clearanceUrl = buildClearanceRecordsUrl({
+    location_name: incident.location_name,
+    state: incident.state,
+    project_name: incident.project_name,
+    clearance_status: incident.clearance_status,
+  });
 
   return (
     <>
@@ -111,7 +171,10 @@ export default function IncidentSidebar({
           <div className={`${embedded ? "mt-1" : "clear-both mt-1"} mb-4 ${embedded ? "" : "pr-10"}`}>
             <StampBadge reason_category={incident.reason_category} />
             <div className="mt-2">
-              <StatusPill status={incident.status} />
+              <StatusPill
+              status={incident.status}
+              href={incident.status === "halted" ? courtUrl : undefined}
+            />
             </div>
           </div>
 
@@ -169,13 +232,32 @@ export default function IncidentSidebar({
             {incident.authority && (
               <p className="font-data text-xs mt-1 break-words">
                 <span className="text-muted">AUTHORITY · </span>
-                {incident.authority}
+                <a
+                  href={buildAuthorityRecordsUrl(incident.authority, {
+                    project_name: incident.project_name,
+                    location_name: incident.location_name,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-red-stamp hover:underline"
+                >
+                  {incident.authority}
+                </a>
               </p>
             )}
             {incident.ministry && (
               <p className="font-data text-xs mt-1 break-words">
                 <span className="text-muted">MINISTRY · </span>
-                {incident.ministry}
+                <a
+                  href={buildMinistryRecordsUrl(incident.ministry, {
+                    project_name: incident.project_name,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-red-stamp hover:underline"
+                >
+                  {incident.ministry}
+                </a>
               </p>
             )}
           </section>
@@ -183,17 +265,33 @@ export default function IncidentSidebar({
           <hr className="hr-faint" />
 
           <section className="mt-4">
-            <p className="gov-label">Clearance status</p>
+            <p className="gov-label">Clearance &amp; legal cases</p>
             <ClearanceStamp status={incident.clearance_status} />
+            {incident.clearance_status && (
+              <ExternalCaseLink href={clearanceUrl} variant="paper">
+                SEARCH FOREST / EC CLEARANCE RECORDS →
+              </ExternalCaseLink>
+            )}
             {incident.ngt_case && (
-              <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(incident.ngt_case)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-3 font-data text-[10px] border border-amber-warn text-amber-warn px-2 py-1.5 hover:bg-amber-warn/10 break-all"
-              >
-                NGT CASE: {incident.ngt_case}
-              </a>
+              <>
+                <ExternalCaseLink
+                  href={buildNgtCaseUrl(incident.ngt_case, legalContext)}
+                  variant="amber"
+                >
+                  NGT CASE {incident.ngt_case} — SEARCH ORDERS (INDIAN KANOON) →
+                </ExternalCaseLink>
+                <ExternalCaseLink
+                  href={buildNgtPortalUrl(incident.ngt_case)}
+                  variant="amber"
+                >
+                  NGT OFFICIAL PORTAL — {incident.ngt_case} →
+                </ExternalCaseLink>
+              </>
+            )}
+            {incident.status === "halted" && !incident.ngt_case && (
+              <ExternalCaseLink href={courtUrl} variant="red">
+                VIEW COURT / TRIBUNAL STAY ORDER →
+              </ExternalCaseLink>
             )}
           </section>
 
