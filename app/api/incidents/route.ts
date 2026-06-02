@@ -5,15 +5,27 @@ import { incidentCreateSchema } from "@/lib/schemas";
 import { MOCK_INCIDENTS } from "@/lib/mock-data";
 import { readLiveIncidents } from "@/lib/ingest/persist";
 import { mergeIncidents } from "@/lib/merge-incidents";
+import { ensureSourceUrl } from "@/lib/source-link";
 import type { Incident } from "@/lib/types";
 import { isAfter, parseISO } from "date-fns";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function withSourceLinks(incidents: Incident[]): Incident[] {
+  return incidents.map((inc) => ({
+    ...inc,
+    source_url: ensureSourceUrl(
+      inc.source_url,
+      inc.location_name,
+      inc.project_name
+    ),
+  }));
+}
+
 async function getAllLocalIncidents(): Promise<Incident[]> {
   const live = await readLiveIncidents();
-  return mergeIncidents(MOCK_INCIDENTS, live);
+  return withSourceLinks(mergeIncidents(MOCK_INCIDENTS, live));
 }
 
 function filterMockIncidents(
@@ -92,7 +104,9 @@ export async function GET(request: NextRequest) {
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
-      return NextResponse.json({ incident: data });
+      return NextResponse.json({
+        incident: withSourceLinks([data as Incident])[0],
+      });
     }
 
     let query = supabase.from("incidents").select("*");
@@ -125,7 +139,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ incidents: data as Incident[] });
+    return NextResponse.json({ incidents: withSourceLinks(data as Incident[]) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Server error";
     return NextResponse.json({ error: message }, { status: 500 });

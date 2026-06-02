@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import type { Incident } from "@/lib/types";
 import StampBadge from "./StampBadge";
 import { CLEARANCE_OPTIONS } from "@/lib/constants";
+import { ensureSourceUrl } from "@/lib/source-link";
 
 interface IncidentSidebarProps {
   incident: Incident | null;
@@ -63,6 +64,12 @@ export default function IncidentSidebar({
   embedded = false,
 }: IncidentSidebarProps) {
   if (!incident) return null;
+
+  const sourceUrl = ensureSourceUrl(
+    incident.source_url,
+    incident.location_name,
+    incident.project_name
+  );
 
   return (
     <>
@@ -146,12 +153,19 @@ export default function IncidentSidebar({
                 </div>
               </>
             )}
-            {incident.project_name && (
-              <p className="font-data text-xs mt-3 break-words">
-                <span className="text-muted">PROJECT · </span>
+          {incident.project_name && (
+            <p className="font-data text-xs mt-3 break-words">
+              <span className="text-muted">SOURCE · </span>
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-red-stamp hover:underline"
+              >
                 {incident.project_name}
-              </p>
-            )}
+              </a>
+            </p>
+          )}
             {incident.authority && (
               <p className="font-data text-xs mt-1 break-words">
                 <span className="text-muted">AUTHORITY · </span>
@@ -192,16 +206,14 @@ export default function IncidentSidebar({
                 {incident.source_type}
               </span>
             )}
-            {incident.source_url && (
-              <a
-                href={incident.source_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block font-data text-xs text-red-stamp mt-2 hover:underline break-all"
-              >
-                VIEW SOURCE DOCUMENT →
-              </a>
-            )}
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block font-data text-xs text-red-stamp mt-2 hover:underline break-all"
+            >
+              READ ORIGINAL ARTICLE →
+            </a>
             {incident.media_urls && incident.media_urls.length > 0 && (
               <div className="grid grid-cols-2 gap-2 mt-3">
                 {incident.media_urls.map((url) => (

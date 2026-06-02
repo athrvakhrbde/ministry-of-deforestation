@@ -161,7 +161,9 @@ function toIncident(raw, index) {
     ministry: raw.ministry ?? "Ministry of Environment, Forest and Climate Change",
     clearance_status: raw.clearance_status ?? "under_review",
     ngt_case: raw.ngt_case ?? null,
-    source_url: `https://mod.example/incident/${index + 1}`,
+    source_url: `https://www.google.com/search?q=${encodeURIComponent(
+      `${raw.location_name} ${raw.project_name ?? ""} India trees news`.trim()
+    )}&hl=en-IN`,
     source_type: raw.source_type ?? "news",
     contributor_id: null,
     verified: raw.verified ?? false,

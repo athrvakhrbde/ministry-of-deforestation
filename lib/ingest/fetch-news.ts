@@ -1,5 +1,6 @@
 import Parser from "rss-parser";
 import type { RawArticle } from "./types";
+import { resolveArticleUrl } from "./resolve-url";
 
 const parser = new Parser({
   timeout: 15000,
@@ -69,13 +70,25 @@ function parseGdeltDate(seendate: string): string {
 async function fetchRssFeed(feed: { name: string; url: string }): Promise<RawArticle[]> {
   try {
     const parsed = await parser.parseURL(feed.url);
-    return (parsed.items ?? []).map((item) => ({
+    const items = (parsed.items ?? []).map((item) => ({
       title: item.title ?? "Untitled",
-      summary: (item.contentSnippet ?? item.content ?? "").replace(/<[^>]+>/g, "").slice(0, 1500),
+      summary: (item.contentSnippet ?? item.content ?? "")
+        .replace(/<[^>]+>/g, "")
+        .slice(0, 1500),
       url: item.link ?? item.guid ?? "",
       publishedAt: item.isoDate ?? item.pubDate ?? new Date().toISOString(),
       sourceName: feed.name,
-    })).filter((a) => a.url.startsWith("http"));
+    }));
+
+    const resolved = await Promise.all(
+      items.map(async (article) => {
+        if (!article.url.startsWith("http")) return null;
+        const url = await resolveArticleUrl(article.url);
+        return { ...article, url };
+      })
+    );
+
+    return resolved.filter((a): a is RawArticle => a !== null && a.url.startsWith("http"));
   } catch (e) {
     console.error(`RSS fetch failed: ${feed.name}`, e);
     return [];

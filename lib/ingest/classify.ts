@@ -3,6 +3,7 @@ import { INDIAN_STATES } from "@/lib/constants";
 import type { ReasonCategory } from "@/lib/types";
 import type { RawArticle, ParsedIncidentDraft } from "./types";
 import { STATE_ALIASES, STATE_CENTROIDS } from "./state-centroids";
+import { ensureSourceUrl } from "@/lib/source-link";
 
 const KEYWORDS = [
   "tree felling",
@@ -136,7 +137,7 @@ export function articleToIncident(article: RawArticle): ParsedIncidentDraft | nu
         ? "under_review"
         : "under_review",
     ngt_case: extractNgt(text),
-    source_url: article.url,
+    source_url: ensureSourceUrl(article.url, article.title, article.sourceName),
     source_type: "news",
     verified: false,
     status: /halt|stay|court|ngt.*stop/i.test(text) ? "halted" : "ongoing",
